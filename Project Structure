@@ -22,4 +22,6 @@ smart-food-redistribution/
 ├── .env.example
 ├── requirements.txt
 ├──Main
-   ├── README.md
+    ├── README.md
+    ├── Environment Setup
+    ├── Project Structure
