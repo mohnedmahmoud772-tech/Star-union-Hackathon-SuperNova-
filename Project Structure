@@ -1,0 +1,25 @@
+smart-food-redistribution/
+│
+├── frontend/
+│   ├── index.html
+│   ├── css/
+│   ├── js/
+│
+├── backend/
+│   ├── app.py
+│   ├── models/
+│   ├── routes/
+│   ├── services/
+│
+├── ai/
+│   ├── matching.py
+│   ├── chatbot.py
+│
+├── docs/
+│   ├── diagrams/
+│   ├── api.md
+│
+├── .env.example
+├── requirements.txt
+├──Main
+   ├── README.md
