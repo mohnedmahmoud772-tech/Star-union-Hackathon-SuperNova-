@@ -2,8 +2,8 @@ smart-food-redistribution/
 │
 ├── frontend/
 │   ├── index.html
-│   ├── css/
-│   ├── js/
+│   ├── index.css
+│   ├── index.js
 │
 ├── backend/
 │   ├── app.py
@@ -16,8 +16,9 @@ smart-food-redistribution/
 │   ├── chatbot.py
 │
 ├── docs/
-│   ├── diagrams/
+│   ├── diagrams
 │   ├── api.md
+│   ├── Plan proposal.pdf
 │
 ├── .env.example
 ├── requirements.txt
