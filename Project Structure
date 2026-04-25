@@ -1,5 +1,12 @@
 smart-food-redistribution/
 │
+├── ui-ux/
+│   ├── wireframes/
+│   ├── mockups/
+│   ├── user-flows/
+│   ├── design-system/
+│   ├── figma-links.md
+│
 ├── frontend/
 │   ├── index.html
 │   ├── index.css
@@ -15,14 +22,21 @@ smart-food-redistribution/
 │   ├── matching.py
 │   ├── chatbot.py
 │
+├── data-analysis/
+│   ├── analysis.ipynb
+│   ├── datasets/
+│   ├── reports/
+│   ├── insights.md
+│
 ├── docs/
-│   ├── diagrams
+│   ├── diagrams/
 │   ├── api.md
 │   ├── Plan proposal.pdf
 │
 ├── .env.example
 ├── requirements.txt
-├──Main
+│
+├── Main/
     ├── README.md
     ├── Environment Setup
     ├── Project Structure
