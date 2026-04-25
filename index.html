@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Smart Food Redistribution – System Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0f0d;
+    --surface: #111812;
+    --surface2: #162019;
+    --border: #1e3024;
+    --green: #22c55e;
+    --green-dim: #16a34a;
+    --green-glow: rgba(34,197,94,0.12);
+    --green-subtle: rgba(34,197,94,0.06);
+    --teal: #2dd4bf;
+    --amber: #f59e0b;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --purple: #a78bfa;
+    --text: #e8f5ec;
+    --text-muted: #6b8f73;
+    --text-dim: #4a6b52;
+    --mono: 'JetBrains Mono', monospace;
+    --head: 'Syne', sans-serif;
+    --body: 'DM Sans', sans-serif;
+    --slide-w: 1280px;
+    --slide-h: 720px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #050807;
+    font-family: var(--body);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  /* ── STAGE ── */
+  #stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .slide-viewport {
+    position: relative;
+    width: var(--slide-w);
+    height: var(--slide-h);
+    overflow: hidden;
+  }
+
+  /* ── SLIDE BASE ── */
+  .slide {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .slide.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  /* shared grid noise overlay */
+  .slide::before {
+    content:'';
+    position:absolute;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .slide > * { position: relative; z-index:1; }
+
+  /* ── SLIDE HEADER BAR ── */
+  .slide-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 48px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .slide-header .logo {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .slide-header .slide-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── NAVIGATION ── */
+  #nav {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(10,15,13,0.92);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 10px 20px;
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  #nav button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  #nav button:hover { border-color: var(--green); color: var(--green); }
+  #nav .counter {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    min-width: 60px;
+    text-align: center;
+  }
+  #nav .dots {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .dot.active { background: var(--green); width: 16px; border-radius: 3px; }
+
+  /* ── PRINT / PDF btn ── */
+  #pdf-btn {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    background: var(--green);
+    color: #050807;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 200;
+    text-transform: uppercase;
+  }
+  #pdf-btn:hover { background: #16a34a; }
+
+  /* ═══════════════════════════════════════
+     SLIDE 1 – TITLE
+  ═══════════════════════════════════════ */
+  #s1 { background: var(--bg); }
+  #s1 .content {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding: 0 80px;
+    gap: 0;
+  }
+  #s1 .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border: 1px solid rgba(34,197,94,0.3);
+    padding: 5px 16px;
+    border-radius: 999px;
+    margin-bottom: 32px;
+  }
+  #s1 h1 {
+    font-family: var(--head);
+    font-size: 80px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  #s1 h1 span { color: var(--green); }
+  #s1 .sub {
+    font-family: var(--head);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 48px;
+    letter-spacing: 0.02em;
+  }
+  #s1 .meta {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+  }
+  #s1 .meta-item {
+    text-align: center;
+  }
+  #s1 .meta-item .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  #s1 .meta-item .val {
+    font-family: var(--body);
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  #s1 .divider { width: 1px; height: 36px; background: var(--border); }
+  #s1 .arc-deco {
+    position:absolute;
+    width:600px; height:600px;
+    border-radius:50%;
+    border: 1px solid rgba(34,197,94,0.07);
+    top:50%; left:50%;
+    transform: translate(-50%,-50%);
+  }
+  #s1 .arc-deco2 {
+    position:absolute;
+    width:400px; height:400px;
+    border-radius:50%;
+    border: 1px solid rgba(34,197,94,0.1);
+    top:50%; left:50%;
+    transform: translate(-50%,-50%);
+  }
+  #s1 .corner-bl {
+    position:absolute;
+    bottom:32px; left:48px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing:0.12em;
+  }
+
+  /* ═══════════════════════════════════════
+     SLIDE 2 – PROJECT OVERVIEW
+  ═══════════════════════════════════════ */
+  #s2 .content {
+    flex:1; display:flex; gap:40px; padding: 40px 48px;
+  }
+  #s2 .left { flex:1; display:flex; flex-direction:column; gap:24px; }
+  #s2 .right { width:420px; display:flex; flex-direction:column; gap:16px; }
+
+  .slide-title {
+    font-family: var(--head);
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .slide-title span { color: var(--green); }
+  .slide-subtitle {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .card-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .dot-icon {
+    width:8px; height:8px; border-radius:50%;
+  }
+  .card p {
+    font-size: 14px;
+    line-height: 1.65;
+    color: #a3c4aa;
+    font-weight: 300;
+  }
+
+  .pill-row { display:flex; flex-wrap:wrap; gap:8px; margin-top: 8px; }
+  .pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid;
+  }
+
+  #s2 .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-box .num {
+    font-family: var(--head);
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--green);
+    line-height:1;
+    margin-bottom: 4px;
+  }
+  .stat-box .desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height:1.4;
+  }
+
+  /* ═══════════════════════════════════════
+     SLIDE 3 – HIGH LEVEL OVERVIEW
+  ═══════════════════════════════════════ */
+  #s3 .content {
+    flex:1; display:flex; flex-direction:column; padding: 32px 48px; gap:24px;
+  }
+  .layer-pipeline {
+    display:flex; align-items:center; gap:0; margin: 8px 0;
+  }
+  .layer-box {
+    flex:1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 16px;
+    text-align:center;
+    position:relative;
+    transition: border-color 0.2s;
+  }
+  .layer-box:hover { border-color: var(--green); }
+  .layer-box .lnum {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .layer-box .lname {
+    font-family: var(--head);
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .layer-box .lfile {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+  .arrow-h {
+    flex-shrink:0; width:32px; text-align:center;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .arrow-h svg { color: var(--green); }
+
+  .resp-row {
+    display:grid; grid-template-columns: repeat(6,1fr); gap:12px;
+  }
+  .resp-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 12px;
+  }
+  .resp-card .rc-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .resp-card .rc-points { list-style:none; }
+  .resp-card .rc-points li {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 2px 0;
+    display:flex; align-items:flex-start; gap:5px;
+    line-height:1.4;
+  }
+  .resp-card .rc-points li::before { content:'—'; color: var(--text-dim); flex-shrink:0; }
+
+  /* ═══════════════════════════════════════
+     SLIDE 4 – PROJECT STRUCTURE
+  ═══════════════════════════════════════ */
+  #s4 .content {
+    flex:1; display:flex; gap:32px; padding: 32px 48px;
+  }
+  #s4 .tree-col { flex:1; }
+  #s4 .desc-col { width:380px; display:flex; flex-direction:column; gap:10px; }
+
+  .tree-block {
+    background: #0d1410;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.8;
+    height:100%;
+    overflow:auto;
+  }
+  .tree-block .t-root { color: var(--green); font-weight:700; }
+  .tree-block .t-dir { color: var(--teal); }
+  .tree-block .t-file { color: #8ba98e; }
+  .tree-block .t-branch { color: var(--text-dim); }
+
+  .folder-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .folder-card .fc-icon {
+    width:32px; height:32px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-family: var(--mono); font-size:11px; font-weight:700;
+    flex-shrink:0;
+  }
+  .folder-card .fc-name {
+    font-family: var(--mono); font-size:12px; font-weight:600;
+    margin-bottom: 2px;
+  }
+  .folder-card .fc-desc {
+    font-size: 11px; color: var(--text-muted); line-height:1.4;
+  }
+
+  /* ═══════════════════════════════════════
+     SLIDES 5–10 – LAYER DETAIL
+  ═══════════════════════════════════════ */
+  .layer-slide .content {
+    flex:1; display:flex; gap:36px; padding: 32px 48px;
+  }
+  .layer-slide .main-col { flex:1; display:flex; flex-direction:column; gap:20px; }
+  .layer-slide .side-col { width:360px; display:flex; flex-direction:column; gap:16px; }
+
+  .purpose-banner {
+    background: var(--green-subtle);
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+  .purpose-banner .pb-label {
+    font-family: var(--mono); font-size:10px; color: var(--green);
+    letter-spacing:0.12em; text-transform:uppercase; margin-bottom:6px;
+  }
+  .purpose-banner .pb-text {
+    font-size: 14px; color: var(--text); font-weight:400; line-height:1.55;
+  }
+
+  .file-list { display:flex; flex-direction:column; gap:8px; }
+  .file-item {
+    background: #0d1410;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 12px 16px;
+    display:flex; gap:12px; align-items:flex-start;
+  }
+  .file-item .fi-name {
+    font-family: var(--mono); font-size:11.5px; color: var(--teal);
+    font-weight:600; flex-shrink:0; width:140px;
+  }
+  .file-item .fi-desc {
+    font-size: 12.5px; color: var(--text-muted); line-height:1.5;
+  }
+
+  .layer-badge {
+    display: inline-flex;
+    align-items:center; gap:8px;
+    font-family: var(--mono); font-size:11px;
+    padding: 8px 16px;
+    border-radius:6px; border:1px solid;
+    margin-bottom:8px;
+  }
+
+  /* ═══════════════════════════════════════
+     SLIDE 11 – FLOW DIAGRAM
+  ═══════════════════════════════════════ */
+  #s11 .content {
+    flex:1; display:flex; gap:32px; padding: 28px 48px;
+  }
+  #s11 .flow-col { flex:1; display:flex; flex-direction:column; gap:0; align-items:center; justify-content:center; }
+  #s11 .detail-col { width:340px; display:flex; flex-direction:column; gap:10px; justify-content:center; }
+
+  .flow-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 24px;
+    text-align:center;
+    min-width:220px;
+    position:relative;
+  }
+  .flow-node .fn-label {
+    font-family: var(--mono); font-size:12px; font-weight:700; letter-spacing:0.05em;
+  }
+  .flow-node .fn-sub {
+    font-size:10px; color: var(--text-dim); margin-top:2px;
+    font-family: var(--mono);
+  }
+  .flow-arrow {
+    display:flex; align-items:center; justify-content:center;
+    height:28px; color: var(--green); font-family: var(--mono); font-size:18px;
+  }
+  .backend-detail {
+    position:relative;
+  }
+  .backend-sub-row {
+    display:flex; gap:6px; margin-top:6px; justify-content:center;
+  }
+  .backend-sub {
+    background: var(--surface2);
+    border: 1px solid rgba(96,165,250,0.25);
+    border-radius:5px;
+    padding: 4px 10px;
+    font-family: var(--mono); font-size:10px; color: var(--blue);
+  }
+
+  .step-item {
+    display:flex; gap:12px; align-items:flex-start;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+  }
+  .step-num {
+    width:22px; height:22px; border-radius:50%;
+    background: var(--green-glow);
+    border: 1px solid rgba(34,197,94,0.3);
+    display:flex; align-items:center; justify-content:center;
+    font-family: var(--mono); font-size:10px; color: var(--green);
+    flex-shrink:0; font-weight:700;
+  }
+  .step-text { font-size:12px; color: var(--text-muted); line-height:1.5; }
+  .step-text strong { color: var(--text); font-weight:500; }
+
+  /* ═══════════════════════════════════════
+     SLIDE 12 – SUMMARY
+  ═══════════════════════════════════════ */
+  #s12 .content {
+    flex:1; display:flex; flex-direction:column; gap:24px; padding: 36px 48px;
+  }
+  .summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; flex:1; }
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 20px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .summary-card .sc-num {
+    font-family: var(--head);
+    font-size: 42px;
+    font-weight:800;
+    line-height:1;
+  }
+  .summary-card .sc-title {
+    font-family: var(--head);
+    font-size:16px; font-weight:700;
+    margin-bottom:4px;
+  }
+  .summary-card .sc-desc {
+    font-size:12.5px; color: var(--text-muted); line-height:1.6;
+  }
+  .stack-pills { display:flex; flex-wrap:wrap; gap:6px; }
+  .sp { font-family:var(--mono); font-size:10px; padding:3px 10px; border-radius:4px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.15); color:var(--green); }
+
+  /* ── PRINT ── */
+  @media print {
+    body { overflow:visible; height:auto; background:#fff; }
+    #stage { width:100%; height:auto; }
+    .slide-viewport { width:100%; height:auto; position:relative; }
+    .slide { position:relative; display:flex !important; opacity:1 !important; page-break-after:always; height:720px; width:1280px; }
+    #nav, #pdf-btn { display:none; }
+  }
+
+  @media (max-width:1300px) {
+    .slide-viewport {
+      width: 100vw;
+      height: calc(100vw * 720/1280);
+    }
+    .slide { transform-origin: top left; }
+  }
+</style>
+</head>
+<body>
+
+<button id="pdf-btn" onclick="window.print()">Save as PDF</button>
+
+<div id="stage">
+<div class="slide-viewport" id="vp">
+
+  <!-- ═══ SLIDE 1 ═══ -->
+  <div class="slide active" id="s1">
+    <div class="slide-header">
+      <span class="logo">SFR // System Architecture</span>
+      <span class="slide-num">01 / 12</span>
+    </div>
+    <div class="arc-deco"></div>
+    <div class="arc-deco2"></div>
+    <div class="content">
+      <div class="tag">Software Engineering Project</div>
+      <h1><span>Smart Food</span><br/>Redistribution</h1>
+      <div class="sub">System Architecture &amp; Project Structure</div>
+      <div class="meta">
+        <div class="meta-item">
+          <div class="label">Document Type</div>
+          <div class="val">Architecture Overview</div>
+        </div>
+        <div class="divider"></div>
+        <div class="meta-item">
+          <div class="label">Total Layers</div>
+          <div class="val">6 System Layers</div>
+        </div>
+        <div class="divider"></div>
+        <div class="meta-item">
+          <div class="label">Stack</div>
+          <div class="val">HTML / Flask / Python / AI</div>
+        </div>
+        <div class="divider"></div>
+        <div class="meta-item">
+          <div class="label">Year</div>
+          <div class="val">2025 – 2026</div>
+        </div>
+      </div>
+    </div>
+    <div class="corner-bl">smart-food-redistribution/</div>
+  </div>
+
+  <!-- ═══ SLIDE 2 ═══ -->
+  <div class="slide" id="s2">
+    <div class="slide-header">
+      <span class="logo">SFR // Project Overview</span>
+      <span class="slide-num">02 / 12</span>
+    </div>
+    <div class="content">
+      <div class="left">
+        <div>
+          <div class="slide-subtitle">02 — Project Idea</div>
+          <div class="slide-title">Why This<br/><span>System Exists</span></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="dot-icon" style="background:#f87171"></div><span style="color:#f87171">The Problem</span></div>
+          <p>Millions of tons of food are wasted daily while many communities lack access to adequate nutrition. Traditional food redistribution channels are manual, slow, and uncoordinated — resulting in spoilage and missed connections between donors and recipients.</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="dot-icon" style="background:var(--green)"></div><span style="color:var(--green)">The Solution</span></div>
+          <p>A layered, intelligent software system that connects food donors with beneficiaries in real time — using AI-powered matching, a conversational chatbot, and data analysis to optimize every redistribution decision.</p>
+        </div>
+        <div class="card" style="border-color:rgba(34,197,94,0.2); background:var(--green-subtle)">
+          <div class="card-title"><div class="dot-icon" style="background:var(--teal)"></div><span style="color:var(--teal)">The Goal</span></div>
+          <p>Reduce food waste. Maximize redistribution efficiency. Empower communities through a production-grade, modular software architecture.</p>
+          <div class="pill-row">
+            <span class="pill" style="border-color:rgba(34,197,94,0.3); color:var(--green)">AI Matching</span>
+            <span class="pill" style="border-color:rgba(45,212,191,0.3); color:var(--teal)">Real-Time API</span>
+            <span class="pill" style="border-color:rgba(96,165,250,0.3); color:var(--blue)">Data Analysis</span>
+            <span class="pill" style="border-color:rgba(245,158,11,0.3); color:var(--amber)">Chatbot</span>
+          </div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="slide-title" style="font-size:20px; margin-bottom:12px">Key Metrics</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="num">6</div><div class="desc">System Layers</div></div>
+          <div class="stat-box"><div class="num" style="color:var(--teal)">2</div><div class="desc">AI Modules</div></div>
+          <div class="stat-box"><div class="num" style="color:var(--blue)">4</div><div class="desc">Backend Components</div></div>
+          <div class="stat-box"><div class="num" style="color:var(--amber)">5</div><div class="desc">Design Artifacts</div></div>
+        </div>
+        <div class="card" style="margin-top:4px">
+          <div class="card-title"><div class="dot-icon" style="background:var(--purple)"></div><span style="color:var(--purple)">Architecture Style</span></div>
+          <p style="font-size:13px">Layered monorepo architecture with clear separation of concerns across UI/UX, Frontend, Backend, AI, Data Analysis, and Documentation.</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="dot-icon" style="background:var(--amber)"></div><span style="color:var(--amber)">Target Users</span></div>
+          <div class="pill-row">
+            <span class="pill" style="border-color:rgba(245,158,11,0.3); color:var(--amber)">Food Donors</span>
+            <span class="pill" style="border-color:rgba(245,158,11,0.3); color:var(--amber)">Beneficiaries</span>
+            <span class="pill" style="border-color:rgba(245,158,11,0.3); color:var(--amber)">NGOs</span>
+            <span class="pill" style="border-color:rgba(245,158,11,0.3); color:var(--amber)">Admins</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--text-muted)">Tech Foundation</div>
+          <div class="pill-row">
+            <span class="pill" style="border-color:rgba(248,113,113,0.3); color:#f87171">Python</span>
+            <span class="pill" style="border-color:rgba(248,113,113,0.3); color:#f87171">Flask</span>
+            <span class="pill" style="border-color:rgba(248,113,113,0.3); color:#f87171">HTML/CSS/JS</span>
+            <span class="pill" style="border-color:rgba(248,113,113,0.3); color:#f87171">Jupyter</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 3 ═══ -->
+  <div class="slide" id="s3">
+    <div class="slide-header">
+      <span class="logo">SFR // High-Level Architecture</span>
+      <span class="slide-num">03 / 12</span>
+    </div>
+    <div class="content">
+      <div>
+        <div class="slide-subtitle">03 — Layered Architecture</div>
+        <div class="slide-title">System at a <span>Glance</span></div>
+      </div>
+      <div class="layer-pipeline">
+        <div class="layer-box" style="border-color:rgba(167,139,250,0.4)">
+          <div class="lnum">LAYER 1</div>
+          <div class="lname" style="color:#a78bfa">UI / UX</div>
+          <div class="lfile">Design Phase</div>
+        </div>
+        <div class="arrow-h"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="layer-box" style="border-color:rgba(34,197,94,0.4)">
+          <div class="lnum">LAYER 2</div>
+          <div class="lname" style="color:var(--green)">Frontend</div>
+          <div class="lfile">Client Interface</div>
+        </div>
+        <div class="arrow-h"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="layer-box" style="border-color:rgba(96,165,250,0.4)">
+          <div class="lnum">LAYER 3</div>
+          <div class="lname" style="color:var(--blue)">Backend</div>
+          <div class="lfile">Core Logic &amp; API</div>
+        </div>
+        <div class="arrow-h"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="layer-box" style="border-color:rgba(245,158,11,0.4)">
+          <div class="lnum">LAYER 4</div>
+          <div class="lname" style="color:var(--amber)">AI Engine</div>
+          <div class="lfile">Intelligence Layer</div>
+        </div>
+        <div class="arrow-h"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="layer-box" style="border-color:rgba(45,212,191,0.4)">
+          <div class="lnum">LAYER 5</div>
+          <div class="lname" style="color:var(--teal)">Data Analysis</div>
+          <div class="lfile">Insights &amp; Reports</div>
+        </div>
+        <div class="arrow-h"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="layer-box" style="border-color:rgba(248,113,113,0.3)">
+          <div class="lnum">LAYER 6</div>
+          <div class="lname" style="color:#f87171">Docs</div>
+          <div class="lfile">Knowledge Base</div>
+        </div>
+      </div>
+      <div class="card" style="background: var(--green-subtle); border-color:rgba(34,197,94,0.2);">
+        <div class="card-title" style="color:var(--green)"><div class="dot-icon" style="background:var(--green)"></div>Key Architecture Principle</div>
+        <p style="font-size:13px;">Each layer has a <strong style="color:var(--text)">single, well-defined responsibility</strong>. Layers communicate through <strong style="color:var(--text)">defined interfaces</strong> (HTTP APIs, function calls, data files). No layer knows about the internal workings of another — this is <strong style="color:var(--text)">clean separation of concerns</strong>.</p>
+      </div>
+      <div class="resp-row">
+        <div class="resp-card">
+          <div class="rc-title" style="color:#a78bfa">UI/UX</div>
+          <ul class="rc-points">
+            <li>Wireframes</li>
+            <li>Mockups</li>
+            <li>User flows</li>
+          </ul>
+        </div>
+        <div class="resp-card">
+          <div class="rc-title" style="color:var(--green)">Frontend</div>
+          <ul class="rc-points">
+            <li>HTML render</li>
+            <li>JS interaction</li>
+            <li>API calls</li>
+          </ul>
+        </div>
+        <div class="resp-card">
+          <div class="rc-title" style="color:var(--blue)">Backend</div>
+          <ul class="rc-points">
+            <li>API routes</li>
+            <li>Business logic</li>
+            <li>DB models</li>
+          </ul>
+        </div>
+        <div class="resp-card">
+          <div class="rc-title" style="color:var(--amber)">AI</div>
+          <ul class="rc-points">
+            <li>Matching algo</li>
+            <li>Chatbot NLP</li>
+            <li>Decisions</li>
+          </ul>
+        </div>
+        <div class="resp-card">
+          <div class="rc-title" style="color:var(--teal)">Data Analysis</div>
+          <ul class="rc-points">
+            <li>Notebooks</li>
+            <li>Reports</li>
+            <li>Insights</li>
+          </ul>
+        </div>
+        <div class="resp-card">
+          <div class="rc-title" style="color:#f87171">Docs</div>
+          <ul class="rc-points">
+            <li>API specs</li>
+            <li>Diagrams</li>
+            <li>Proposal</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 4 ═══ -->
+  <div class="slide" id="s4">
+    <div class="slide-header">
+      <span class="logo">SFR // Project Structure</span>
+      <span class="slide-num">04 / 12</span>
+    </div>
+    <div class="content">
+      <div class="tree-col">
+        <div class="slide-subtitle" style="margin-bottom:12px">04 — Full Directory Tree</div>
+        <div class="tree-block">
+<span class="t-root">smart-food-redistribution/</span>
+<span class="t-branch">├──</span> <span class="t-dir">ui-ux/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">wireframes/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">mockups/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">user-flows/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">design-system/</span>
+<span class="t-branch">│   └──</span> <span class="t-file">figma-links.md</span>
+<span class="t-branch">├──</span> <span class="t-dir">frontend/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">index.html</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">index.css</span>
+<span class="t-branch">│   └──</span> <span class="t-file">index.js</span>
+<span class="t-branch">├──</span> <span class="t-dir">backend/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">app.py</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">models/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">routes/</span>
+<span class="t-branch">│   └──</span> <span class="t-file">services/</span>
+<span class="t-branch">├──</span> <span class="t-dir">ai/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">matching.py</span>
+<span class="t-branch">│   └──</span> <span class="t-file">chatbot.py</span>
+<span class="t-branch">├──</span> <span class="t-dir">data-analysis/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">analysis.ipynb</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">datasets/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">reports/</span>
+<span class="t-branch">│   └──</span> <span class="t-file">insights.md</span>
+<span class="t-branch">├──</span> <span class="t-dir">docs/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">diagrams/</span>
+<span class="t-branch">│   ├──</span> <span class="t-file">api.md</span>
+<span class="t-branch">│   └──</span> <span class="t-file">Plan proposal.pdf</span>
+<span class="t-branch">├──</span> <span class="t-file">.env.example</span>
+<span class="t-branch">├──</span> <span class="t-file">requirements.txt</span>
+<span class="t-branch">└──</span> <span class="t-dir">Main/</span>
+        </div>
+      </div>
+      <div class="desc-col">
+        <div class="slide-title" style="font-size:20px; margin-bottom:4px">Modular by <span>Design</span></div>
+        <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin-bottom:8px">Every folder is a system layer. This is not accidental — it is intentional modular architecture.</p>
+        <div class="folder-card"><div class="fc-icon" style="background:rgba(167,139,250,0.1); color:#a78bfa">UI</div><div><div class="fc-name" style="color:#a78bfa">ui-ux/</div><div class="fc-desc">Design artifacts before coding starts</div></div></div>
+        <div class="folder-card"><div class="fc-icon" style="background:rgba(34,197,94,0.1); color:var(--green)">FE</div><div><div class="fc-name" style="color:var(--green)">frontend/</div><div class="fc-desc">Client-side HTML, CSS, JS interface</div></div></div>
+        <div class="folder-card"><div class="fc-icon" style="background:rgba(96,165,250,0.1); color:var(--blue)">BE</div><div><div class="fc-name" style="color:var(--blue)">backend/</div><div class="fc-desc">Flask API, models, routes, services</div></div></div>
+        <div class="folder-card"><div class="fc-icon" style="background:rgba(245,158,11,0.1); color:var(--amber)">AI</div><div><div class="fc-name" style="color:var(--amber)">ai/</div><div class="fc-desc">Matching engine + chatbot assistant</div></div></div>
+        <div class="folder-card"><div class="fc-icon" style="background:rgba(45,212,191,0.1); color:var(--teal)">DA</div><div><div class="fc-name" style="color:var(--teal)">data-analysis/</div><div class="fc-desc">Notebooks, datasets, reports</div></div></div>
+        <div class="folder-card"><div class="fc-icon" style="background:rgba(248,113,113,0.1); color:#f87171">DC</div><div><div class="fc-name" style="color:#f87171">docs/</div><div class="fc-desc">API specs, diagrams, proposal</div></div></div>
+        <div class="folder-card" style="border-color:rgba(34,197,94,0.2)"><div class="fc-icon" style="background:rgba(34,197,94,0.06); color:var(--text-dim); font-size:9px">ENV</div><div><div class="fc-name" style="color:var(--text-dim)">.env / requirements.txt</div><div class="fc-desc">Root config and dependency files</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 5 – UI/UX ═══ -->
+  <div class="slide layer-slide" id="s5">
+    <div class="slide-header">
+      <span class="logo">SFR // Layer 1: UI/UX</span>
+      <span class="slide-num">05 / 12</span>
+    </div>
+    <div class="content">
+      <div class="main-col">
+        <div>
+          <div class="layer-badge" style="color:#a78bfa; border-color:rgba(167,139,250,0.3); background:rgba(167,139,250,0.06)">LAYER 1 — UI / UX DESIGN</div>
+          <div class="slide-title">Design <span style="color:#a78bfa">Before Code</span></div>
+        </div>
+        <div class="purpose-banner" style="border-color:rgba(167,139,250,0.25); background:rgba(167,139,250,0.06)">
+          <div class="pb-label" style="color:#a78bfa">Purpose of this layer</div>
+          <div class="pb-text">The UI/UX layer defines the <strong>entire user experience before a single line of code is written</strong>. It answers: What will users see? How will they navigate? What visual language guides the product?</div>
+        </div>
+        <div class="file-list">
+          <div class="file-item">
+            <div class="fi-name">wireframes/</div>
+            <div class="fi-desc">Low-fidelity sketches of each screen. Defines layout, content placement, and navigation — without colors or styling. Focuses on structure only.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">mockups/</div>
+            <div class="fi-desc">High-fidelity visual designs with real colors, fonts, and spacing. Represents the final look of the application before development.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">user-flows/</div>
+            <div class="fi-desc">Diagrams showing how a user moves through the system — from login to donation submission to confirmation. Maps the complete user journey.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">design-system/</div>
+            <div class="fi-desc">A shared library of colors, typography rules, spacing scales, and reusable UI components. Ensures visual consistency across the entire app.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">figma-links.md</div>
+            <div class="fi-desc">References to live Figma files where the team collaborates on design in real-time. Single source of design truth.</div>
+          </div>
+        </div>
+      </div>
+      <div class="side-col">
+        <div class="card">
+          <div class="card-title" style="color:#a78bfa"><div class="dot-icon" style="background:#a78bfa"></div>Design-to-Dev Pipeline</div>
+          <p style="font-size:12.5px">UI/UX defines the contract between design and engineering. Frontend developers implement exactly what UI/UX specifies — reducing ambiguity and rework.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--text-muted)">Key Outputs</div>
+          <div class="pill-row">
+            <span class="pill" style="border-color:rgba(167,139,250,0.3); color:#a78bfa">Screen Layouts</span>
+            <span class="pill" style="border-color:rgba(167,139,250,0.3); color:#a78bfa">User Journey</span>
+            <span class="pill" style="border-color:rgba(167,139,250,0.3); color:#a78bfa">Component Library</span>
+            <span class="pill" style="border-color:rgba(167,139,250,0.3); color:#a78bfa">Visual Style</span>
+          </div>
+        </div>
+        <div class="card" style="background:rgba(167,139,250,0.05); border-color:rgba(167,139,250,0.2)">
+          <div class="card-title" style="color:#a78bfa">Flow to Next Layer</div>
+          <p style="font-size:12.5px">UI/UX designs are handed off to the <strong style="color:var(--text)">Frontend layer</strong>, which implements them using HTML, CSS, and JavaScript.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--text-muted)">Artifacts Produced</div>
+          <div class="file-list">
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:100px; font-size:10.5px">Wireframe PDF</div>
+              <div class="fi-desc" style="font-size:11px">Blueprint of every screen</div>
+            </div>
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:100px; font-size:10.5px">Figma File</div>
+              <div class="fi-desc" style="font-size:11px">Interactive prototype</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 6 – FRONTEND ═══ -->
+  <div class="slide layer-slide" id="s6">
+    <div class="slide-header">
+      <span class="logo">SFR // Layer 2: Frontend</span>
+      <span class="slide-num">06 / 12</span>
+    </div>
+    <div class="content">
+      <div class="main-col">
+        <div>
+          <div class="layer-badge" style="color:var(--green); border-color:rgba(34,197,94,0.3); background:var(--green-subtle)">LAYER 2 — FRONTEND CLIENT</div>
+          <div class="slide-title">The User's <span>Window</span></div>
+        </div>
+        <div class="purpose-banner">
+          <div class="pb-label">Purpose of this layer</div>
+          <div class="pb-text">The Frontend is everything the user sees and interacts with directly. It renders the UI, handles user events, sends HTTP requests to the backend, and displays results — all in real time.</div>
+        </div>
+        <div class="file-list">
+          <div class="file-item">
+            <div class="fi-name">index.html</div>
+            <div class="fi-desc">The structural skeleton of the application. Defines all DOM elements, semantic layout, and includes external scripts and stylesheets. Entry point of the frontend.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">index.css</div>
+            <div class="fi-desc">All visual styling — layout, colors, typography, responsive breakpoints. Implements the design system defined in the UI/UX layer. Controls how everything looks.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">index.js</div>
+            <div class="fi-desc">Client-side logic. Handles button clicks, form submissions, API calls to the backend (fetch/axios), dynamic DOM updates, and state management.</div>
+          </div>
+        </div>
+        <div class="card" style="background:var(--surface2)">
+          <div class="card-title" style="color:var(--green)">Frontend Responsibilities</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px">
+            <div style="font-size:12px; color:var(--text-muted); padding:6px 0; border-left:2px solid var(--green); padding-left:10px">Render HTML views for all app screens</div>
+            <div style="font-size:12px; color:var(--text-muted); padding:6px 0; border-left:2px solid var(--green); padding-left:10px">Capture and validate user input from forms</div>
+            <div style="font-size:12px; color:var(--text-muted); padding:6px 0; border-left:2px solid var(--green); padding-left:10px">Call backend REST API endpoints via HTTP</div>
+            <div style="font-size:12px; color:var(--text-muted); padding:6px 0; border-left:2px solid var(--green); padding-left:10px">Display API responses dynamically in the DOM</div>
+          </div>
+        </div>
+      </div>
+      <div class="side-col">
+        <div class="card">
+          <div class="card-title" style="color:var(--green)">Communication Pattern</div>
+          <div class="file-list" style="gap:6px">
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:80px; color:var(--text-muted); font-size:10.5px">User Action</div>
+              <div class="fi-desc" style="font-size:11px">Click, submit, type</div>
+            </div>
+            <div style="text-align:center; color:var(--green); font-size:12px; font-family:var(--mono)">v</div>
+            <div class="file-item" style="padding:8px 12px; border-color:rgba(34,197,94,0.3)">
+              <div class="fi-name" style="width:80px; color:var(--green); font-size:10.5px">index.js</div>
+              <div class="fi-desc" style="font-size:11px">Intercepts event, calls API</div>
+            </div>
+            <div style="text-align:center; color:var(--green); font-size:12px; font-family:var(--mono)">v</div>
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:80px; color:var(--blue); font-size:10.5px">Backend</div>
+              <div class="fi-desc" style="font-size:11px">Receives HTTP request</div>
+            </div>
+            <div style="text-align:center; color:var(--green); font-size:12px; font-family:var(--mono)">v</div>
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:80px; color:var(--green); font-size:10.5px">index.js</div>
+              <div class="fi-desc" style="font-size:11px">Receives JSON response</div>
+            </div>
+            <div style="text-align:center; color:var(--green); font-size:12px; font-family:var(--mono)">v</div>
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:80px; color:var(--text-muted); font-size:10.5px">index.html</div>
+              <div class="fi-desc" style="font-size:11px">DOM updated with result</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="background:var(--green-subtle); border-color:rgba(34,197,94,0.2)">
+          <div class="card-title" style="color:var(--green)">Key Principle</div>
+          <p style="font-size:12.5px">Frontend is <strong style="color:var(--text)">stateless</strong> — it holds no permanent data. All real data lives in the backend database. Frontend simply displays and requests.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 7 – BACKEND ═══ -->
+  <div class="slide layer-slide" id="s7">
+    <div class="slide-header">
+      <span class="logo">SFR // Layer 3: Backend</span>
+      <span class="slide-num">07 / 12</span>
+    </div>
+    <div class="content">
+      <div class="main-col">
+        <div>
+          <div class="layer-badge" style="color:var(--blue); border-color:rgba(96,165,250,0.3); background:rgba(96,165,250,0.06)">LAYER 3 — BACKEND CORE</div>
+          <div class="slide-title">The <span style="color:var(--blue)">Brain</span> of the System</div>
+        </div>
+        <div class="purpose-banner" style="border-color:rgba(96,165,250,0.25); background:rgba(96,165,250,0.05)">
+          <div class="pb-label" style="color:var(--blue)">Purpose of this layer</div>
+          <div class="pb-text">The Backend is the central processing unit of the entire system. It receives requests from the frontend, executes business logic, coordinates with AI modules, reads/writes from the database, and returns structured responses.</div>
+        </div>
+        <div class="file-list">
+          <div class="file-item">
+            <div class="fi-name">app.py</div>
+            <div class="fi-desc">Flask application entry point. Initializes the server, registers all route blueprints, configures middleware, connects to the database, and starts the application.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">routes/</div>
+            <div class="fi-desc">Each file defines a group of API endpoints (e.g., /donations, /users, /matches). Routes accept HTTP requests, validate input, call services, and return JSON responses.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">services/</div>
+            <div class="fi-desc">Contains the core business logic. Services are called by routes and perform operations like: match a donation, notify a beneficiary, process a request. Independent and testable.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">models/</div>
+            <div class="fi-desc">ORM data models that map to database tables. Define the schema for: User, Donation, Request, Match, Notification. Used by services to read/write persistent data.</div>
+          </div>
+        </div>
+      </div>
+      <div class="side-col">
+        <div class="card">
+          <div class="card-title" style="color:var(--blue)">Internal Architecture</div>
+          <div style="font-family:var(--mono); font-size:11px; line-height:2; color:var(--text-muted)">
+            <div style="color:var(--blue); font-weight:700">app.py</div>
+            <div style="padding-left:16px; border-left:2px solid var(--border)">
+              <div>+ registers routes/</div>
+              <div>+ loads models/</div>
+              <div>+ calls services/</div>
+            </div>
+            <br/>
+            <div style="color:#60a5fa; font-weight:600">routes/ (API layer)</div>
+            <div style="padding-left:16px; border-left:2px solid var(--border)">
+              <div>donations.py</div>
+              <div>users.py</div>
+              <div>matches.py</div>
+            </div>
+            <br/>
+            <div style="color:#93c5fd; font-weight:600">services/ (logic)</div>
+            <div style="padding-left:16px; border-left:2px solid var(--border)">
+              <div>match_service.py</div>
+              <div>notification_service.py</div>
+            </div>
+            <br/>
+            <div style="color:#bfdbfe; font-weight:600">models/ (schema)</div>
+            <div style="padding-left:16px; border-left:2px solid var(--border)">
+              <div>user.py</div>
+              <div>donation.py</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="background:rgba(96,165,250,0.05); border-color:rgba(96,165,250,0.2)">
+          <div class="card-title" style="color:var(--blue)">Connects To</div>
+          <div class="pill-row">
+            <span class="pill" style="border-color:rgba(34,197,94,0.3); color:var(--green)">Frontend API calls</span>
+            <span class="pill" style="border-color:rgba(245,158,11,0.3); color:var(--amber)">AI Engine</span>
+            <span class="pill" style="border-color:rgba(45,212,191,0.3); color:var(--teal)">Database</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 8 – AI ═══ -->
+  <div class="slide layer-slide" id="s8">
+    <div class="slide-header">
+      <span class="logo">SFR // Layer 4: AI Engine</span>
+      <span class="slide-num">08 / 12</span>
+    </div>
+    <div class="content">
+      <div class="main-col">
+        <div>
+          <div class="layer-badge" style="color:var(--amber); border-color:rgba(245,158,11,0.3); background:rgba(245,158,11,0.06)">LAYER 4 — AI INTELLIGENCE ENGINE</div>
+          <div class="slide-title">Smart <span style="color:var(--amber)">Decision Making</span></div>
+        </div>
+        <div class="purpose-banner" style="border-color:rgba(245,158,11,0.25); background:rgba(245,158,11,0.05)">
+          <div class="pb-label" style="color:var(--amber)">Purpose of this layer</div>
+          <div class="pb-text">The AI layer adds intelligence to the system. Instead of hard-coded rules, it uses algorithms to make smart decisions: Who should receive a food donation? How should the chatbot respond to a user query? This is what makes the system "smart".</div>
+        </div>
+        <div class="file-list">
+          <div class="file-item" style="border-color:rgba(245,158,11,0.25)">
+            <div class="fi-name" style="color:var(--amber)">matching.py</div>
+            <div class="fi-desc">The core matching algorithm. Takes a food donation (type, quantity, location, expiry) and a set of beneficiary requests, then calculates the best match using scoring criteria: proximity, urgency, food type compatibility, capacity. Returns optimal pairings.</div>
+          </div>
+          <div class="file-item" style="border-color:rgba(245,158,11,0.2)">
+            <div class="fi-name" style="color:var(--amber)">chatbot.py</div>
+            <div class="fi-desc">A conversational assistant that helps users interact with the system through natural language. Handles: "How do I donate food?", "What donations are near me?", "Check my request status". Uses NLP to parse intent and return helpful responses.</div>
+          </div>
+        </div>
+        <div class="card" style="background:rgba(245,158,11,0.04); border-color:rgba(245,158,11,0.2)">
+          <div class="card-title" style="color:var(--amber)">How Backend Calls AI</div>
+          <div style="font-family:var(--mono); font-size:11.5px; color:var(--text-muted); line-height:1.9">
+            <span style="color:var(--blue)">backend/services/match_service.py</span><br/>
+            <span style="color:var(--text-dim)">  from</span> <span style="color:var(--amber)">ai.matching</span> <span style="color:var(--text-dim)">import</span> find_best_match<br/>
+            <span style="color:var(--text-dim)">  result =</span> <span style="color:var(--amber)">find_best_match</span>(donation, requests)
+          </div>
+        </div>
+      </div>
+      <div class="side-col">
+        <div class="card">
+          <div class="card-title" style="color:var(--amber)">Matching Algorithm Flow</div>
+          <div class="file-list" style="gap:5px">
+            <div class="file-item" style="padding:8px 10px">
+              <div class="fi-name" style="width:auto; color:var(--text-muted); font-size:10.5px; width:120px">Input</div>
+              <div class="fi-desc" style="font-size:11px">Donation + all active requests</div>
+            </div>
+            <div style="text-align:center; color:var(--amber); font-size:10px; font-family:var(--mono)">PROCESS</div>
+            <div class="file-item" style="padding:8px 10px; border-color:rgba(245,158,11,0.2)">
+              <div class="fi-name" style="width:120px; color:var(--amber); font-size:10.5px">Score</div>
+              <div class="fi-desc" style="font-size:11px">Distance + urgency + type</div>
+            </div>
+            <div style="text-align:center; color:var(--amber); font-size:10px; font-family:var(--mono)">RANK</div>
+            <div class="file-item" style="padding:8px 10px">
+              <div class="fi-name" style="width:120px; color:var(--text-muted); font-size:10.5px">Output</div>
+              <div class="fi-desc" style="font-size:11px">Best match returned to backend</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--amber)">Chatbot Capabilities</div>
+          <ul style="list-style:none; display:flex; flex-direction:column; gap:5px">
+            <li style="font-size:12px; color:var(--text-muted); padding:5px 8px; background:var(--surface2); border-radius:5px; border:1px solid var(--border)">Answer FAQs about the platform</li>
+            <li style="font-size:12px; color:var(--text-muted); padding:5px 8px; background:var(--surface2); border-radius:5px; border:1px solid var(--border)">Guide users through donation flow</li>
+            <li style="font-size:12px; color:var(--text-muted); padding:5px 8px; background:var(--surface2); border-radius:5px; border:1px solid var(--border)">Report on request status</li>
+            <li style="font-size:12px; color:var(--text-muted); padding:5px 8px; background:var(--surface2); border-radius:5px; border:1px solid var(--border)">Collect user feedback</li>
+          </ul>
+        </div>
+        <div class="card" style="background:rgba(245,158,11,0.05); border-color:rgba(245,158,11,0.2)">
+          <div class="card-title" style="color:var(--amber)">Key Principle</div>
+          <p style="font-size:12.5px">AI layer is <strong style="color:var(--text)">called by the backend</strong>. It never communicates with the frontend directly. This keeps AI logic clean and independently testable.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 9 – DATA ANALYSIS ═══ -->
+  <div class="slide layer-slide" id="s9">
+    <div class="slide-header">
+      <span class="logo">SFR // Layer 5: Data Analysis</span>
+      <span class="slide-num">09 / 12</span>
+    </div>
+    <div class="content">
+      <div class="main-col">
+        <div>
+          <div class="layer-badge" style="color:var(--teal); border-color:rgba(45,212,191,0.3); background:rgba(45,212,191,0.05)">LAYER 5 — DATA ANALYSIS</div>
+          <div class="slide-title">From Data to <span style="color:var(--teal)">Insights</span></div>
+        </div>
+        <div class="purpose-banner" style="border-color:rgba(45,212,191,0.25); background:rgba(45,212,191,0.05)">
+          <div class="pb-label" style="color:var(--teal)">Purpose of this layer</div>
+          <div class="pb-text">After the system runs, we need to understand: Is it working? Are donations being matched efficiently? Where are the bottlenecks? The Data Analysis layer answers these questions and feeds insights back to optimize the AI and backend logic.</div>
+        </div>
+        <div class="file-list">
+          <div class="file-item" style="border-color:rgba(45,212,191,0.2)">
+            <div class="fi-name" style="color:var(--teal)">analysis.ipynb</div>
+            <div class="fi-desc">Jupyter Notebook for exploratory data analysis. Contains Python code to load, clean, visualize, and analyze data. Produces charts and statistics about system usage, match rates, donation patterns, and regional demand.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">datasets/</div>
+            <div class="fi-desc">Raw and processed data exported from the system database. Includes donation records, beneficiary requests, match outcomes, user activity logs — anonymized for analysis.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">reports/</div>
+            <div class="fi-desc">Auto-generated or manually compiled reports summarizing key metrics. Shared with stakeholders to track KPIs: total redistributed food (kg), match success rate (%), average response time.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">insights.md</div>
+            <div class="fi-desc">A markdown document of written conclusions from analysis. E.g.: "Matching rate drops on weekends" or "Bakery donations expire before matching". Directly informs AI improvements.</div>
+          </div>
+        </div>
+      </div>
+      <div class="side-col">
+        <div class="card">
+          <div class="card-title" style="color:var(--teal)">Analysis Lifecycle</div>
+          <div class="file-list" style="gap:5px">
+            <div class="file-item" style="padding:8px 10px; border-color:rgba(45,212,191,0.2)">
+              <div class="fi-name" style="width:80px; color:var(--teal); font-size:10.5px">Collect</div>
+              <div class="fi-desc" style="font-size:11px">Export data from database</div>
+            </div>
+            <div class="file-item" style="padding:8px 10px">
+              <div class="fi-name" style="width:80px; color:var(--text-muted); font-size:10.5px">Explore</div>
+              <div class="fi-desc" style="font-size:11px">Run analysis.ipynb</div>
+            </div>
+            <div class="file-item" style="padding:8px 10px">
+              <div class="fi-name" style="width:80px; color:var(--text-muted); font-size:10.5px">Visualize</div>
+              <div class="fi-desc" style="font-size:11px">Charts in reports/</div>
+            </div>
+            <div class="file-item" style="padding:8px 10px">
+              <div class="fi-name" style="width:80px; color:var(--text-muted); font-size:10.5px">Conclude</div>
+              <div class="fi-desc" style="font-size:11px">Write insights.md</div>
+            </div>
+            <div class="file-item" style="padding:8px 10px; border-color:rgba(34,197,94,0.2)">
+              <div class="fi-name" style="width:80px; color:var(--green); font-size:10.5px">Optimize</div>
+              <div class="fi-desc" style="font-size:11px">Improve AI + backend</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--teal)">Key Metrics Tracked</div>
+          <div class="pill-row">
+            <span class="pill" style="border-color:rgba(45,212,191,0.3); color:var(--teal)">Match Rate %</span>
+            <span class="pill" style="border-color:rgba(45,212,191,0.3); color:var(--teal)">Food Saved (kg)</span>
+            <span class="pill" style="border-color:rgba(45,212,191,0.3); color:var(--teal)">Avg Response Time</span>
+            <span class="pill" style="border-color:rgba(45,212,191,0.3); color:var(--teal)">Peak Demand Zones</span>
+            <span class="pill" style="border-color:rgba(45,212,191,0.3); color:var(--teal)">Donation Patterns</span>
+          </div>
+        </div>
+        <div class="card" style="background:rgba(45,212,191,0.04); border-color:rgba(45,212,191,0.2)">
+          <div class="card-title" style="color:var(--teal)">Feedback Loop</div>
+          <p style="font-size:12.5px">Analysis results feed back into the <strong style="color:var(--text)">AI layer</strong> to retrain and tune the matching algorithm — making the system smarter over time.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 10 – DOCS ═══ -->
+  <div class="slide layer-slide" id="s10">
+    <div class="slide-header">
+      <span class="logo">SFR // Layer 6: Documentation</span>
+      <span class="slide-num">10 / 12</span>
+    </div>
+    <div class="content">
+      <div class="main-col">
+        <div>
+          <div class="layer-badge" style="color:#f87171; border-color:rgba(248,113,113,0.3); background:rgba(248,113,113,0.05)">LAYER 6 — DOCUMENTATION</div>
+          <div class="slide-title">The System <span style="color:#f87171">Knowledge Base</span></div>
+        </div>
+        <div class="purpose-banner" style="border-color:rgba(248,113,113,0.25); background:rgba(248,113,113,0.05)">
+          <div class="pb-label" style="color:#f87171">Purpose of this layer</div>
+          <div class="pb-text">A system without documentation is a system only its creator understands. The Docs layer captures all knowledge: how the API works, how the system is designed, what was planned and why. It enables onboarding, maintenance, and collaboration.</div>
+        </div>
+        <div class="file-list">
+          <div class="file-item" style="border-color:rgba(248,113,113,0.2)">
+            <div class="fi-name" style="color:#f87171">api.md</div>
+            <div class="fi-desc">Complete API reference documentation. Lists every endpoint: URL, HTTP method, request parameters, request body format, response format, status codes, and example responses. The contract between Frontend and Backend.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">diagrams/</div>
+            <div class="fi-desc">Visual system representations: ER diagrams (database schema), sequence diagrams (how components communicate), architecture diagrams (system overview), and flowcharts (matching algorithm). Makes complex systems understandable at a glance.</div>
+          </div>
+          <div class="file-item">
+            <div class="fi-name">Plan proposal.pdf</div>
+            <div class="fi-desc">The original project proposal document. Contains: project objectives, scope definition, timeline and milestones, team roles, technical approach, and expected deliverables. The foundational planning artifact.</div>
+          </div>
+        </div>
+        <div class="card" style="background:var(--surface2)">
+          <div class="card-title" style="color:#f87171">Root Config Files</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px">
+            <div class="file-item" style="padding:10px 12px">
+              <div class="fi-name" style="width:auto; color:var(--text-muted); font-size:10.5px; margin-bottom:3px">.env.example</div>
+              <div class="fi-desc" style="font-size:11px">Template for environment variables: DB connection strings, API keys, secret keys. Developers copy this to .env and fill in real values.</div>
+            </div>
+            <div class="file-item" style="padding:10px 12px">
+              <div class="fi-name" style="width:auto; color:var(--text-muted); font-size:10.5px; margin-bottom:3px">requirements.txt</div>
+              <div class="fi-desc" style="font-size:11px">Python dependency list. Run pip install -r requirements.txt to install all packages: Flask, SQLAlchemy, scikit-learn, pandas, transformers.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="side-col">
+        <div class="card">
+          <div class="card-title" style="color:#f87171">Diagram Types</div>
+          <div class="file-list" style="gap:6px">
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:110px; color:#f87171; font-size:10.5px">ER Diagram</div>
+              <div class="fi-desc" style="font-size:11px">Database schema and relationships</div>
+            </div>
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:110px; color:#f87171; font-size:10.5px">Sequence Diagram</div>
+              <div class="fi-desc" style="font-size:11px">API call flow between layers</div>
+            </div>
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:110px; color:#f87171; font-size:10.5px">Architecture Chart</div>
+              <div class="fi-desc" style="font-size:11px">High-level system overview</div>
+            </div>
+            <div class="file-item" style="padding:8px 12px">
+              <div class="fi-name" style="width:110px; color:#f87171; font-size:10.5px">Flowchart</div>
+              <div class="fi-desc" style="font-size:11px">Matching algorithm steps</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="background:rgba(248,113,113,0.04); border-color:rgba(248,113,113,0.2)">
+          <div class="card-title" style="color:#f87171">Why Docs Matter</div>
+          <p style="font-size:12.5px">Good documentation is what separates a <strong style="color:var(--text)">professional project</strong> from a personal script. It enables team collaboration, future maintenance, and knowledge transfer.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 11 – FLOW DIAGRAM ═══ -->
+  <div class="slide" id="s11">
+    <div class="slide-header">
+      <span class="logo">SFR // System Flow Diagram</span>
+      <span class="slide-num">11 / 12</span>
+    </div>
+    <div class="content">
+      <div class="flow-col">
+        <div class="slide-subtitle" style="margin-bottom:16px">11 — End-to-End Data Flow</div>
+        <div class="flow-node" style="border-color:rgba(255,255,255,0.2); background:rgba(255,255,255,0.05)">
+          <div class="fn-label" style="color:var(--text)">USER</div>
+          <div class="fn-sub">Donor / Beneficiary</div>
+        </div>
+        <div class="flow-arrow">|</div>
+        <div class="flow-node" style="border-color:rgba(167,139,250,0.4); background:rgba(167,139,250,0.07)">
+          <div class="fn-label" style="color:#a78bfa">UI / UX LAYER</div>
+          <div class="fn-sub">Wireframes → Mockups → Design System</div>
+        </div>
+        <div class="flow-arrow">|</div>
+        <div class="flow-node" style="border-color:rgba(34,197,94,0.4); background:rgba(34,197,94,0.07)">
+          <div class="fn-label" style="color:var(--green)">FRONTEND LAYER</div>
+          <div class="fn-sub">index.html → index.css → index.js → HTTP Request</div>
+        </div>
+        <div class="flow-arrow">|</div>
+        <div class="flow-node backend-detail" style="border-color:rgba(96,165,250,0.4); background:rgba(96,165,250,0.07)">
+          <div class="fn-label" style="color:var(--blue)">BACKEND LAYER</div>
+          <div class="fn-sub">app.py receives request</div>
+          <div class="backend-sub-row">
+            <span class="backend-sub">routes/</span>
+            <span class="backend-sub">services/</span>
+            <span class="backend-sub">models/</span>
+          </div>
+        </div>
+        <div class="flow-arrow">|</div>
+        <div style="display:flex; gap:12px; width:100%; justify-content:center">
+          <div class="flow-node" style="border-color:rgba(245,158,11,0.4); background:rgba(245,158,11,0.07); min-width:0; flex:1">
+            <div class="fn-label" style="color:var(--amber); font-size:11px">AI LAYER</div>
+            <div class="fn-sub">matching.py + chatbot.py</div>
+          </div>
+          <div style="display:flex; align-items:center; color:var(--teal); font-family:var(--mono); font-size:11px; font-weight:700">+</div>
+          <div class="flow-node" style="border-color:rgba(45,212,191,0.4); background:rgba(45,212,191,0.07); min-width:0; flex:1">
+            <div class="fn-label" style="color:var(--teal); font-size:11px">DATA ANALYSIS</div>
+            <div class="fn-sub">analysis.ipynb → insights</div>
+          </div>
+        </div>
+        <div class="flow-arrow">|</div>
+        <div class="flow-node" style="border-color:rgba(96,165,250,0.4); background:rgba(96,165,250,0.07)">
+          <div class="fn-label" style="color:var(--blue)">BACKEND RESPONSE</div>
+          <div class="fn-sub">JSON response sent to frontend</div>
+        </div>
+        <div class="flow-arrow">|</div>
+        <div class="flow-node" style="border-color:rgba(34,197,94,0.4); background:rgba(34,197,94,0.07)">
+          <div class="fn-label" style="color:var(--green)">FRONTEND DISPLAY</div>
+          <div class="fn-sub">DOM updated with results</div>
+        </div>
+        <div class="flow-arrow">|</div>
+        <div class="flow-node" style="border-color:rgba(255,255,255,0.2); background:rgba(255,255,255,0.05)">
+          <div class="fn-label" style="color:var(--text)">USER</div>
+          <div class="fn-sub">Sees match / response / confirmation</div>
+        </div>
+      </div>
+      <div class="detail-col">
+        <div class="slide-title" style="font-size:20px; margin-bottom:12px">Step-by-Step <span>Breakdown</span></div>
+        <div class="step-item"><div class="step-num">1</div><div class="step-text"><strong>User</strong> opens the app and submits a donation form</div></div>
+        <div class="step-item"><div class="step-num">2</div><div class="step-text"><strong>Frontend (index.js)</strong> sends POST /api/donations to backend</div></div>
+        <div class="step-item"><div class="step-num">3</div><div class="step-text"><strong>Backend routes/</strong> receive request and validate input data</div></div>
+        <div class="step-item"><div class="step-num">4</div><div class="step-text"><strong>Backend services/</strong> call AI matching engine with donation data</div></div>
+        <div class="step-item"><div class="step-num">5</div><div class="step-text"><strong>AI matching.py</strong> scores all requests and returns best match</div></div>
+        <div class="step-item"><div class="step-num">6</div><div class="step-text"><strong>Backend models/</strong> save match to database via ORM</div></div>
+        <div class="step-item"><div class="step-num">7</div><div class="step-text"><strong>Data Analysis</strong> logs event for future insight generation</div></div>
+        <div class="step-item"><div class="step-num">8</div><div class="step-text"><strong>Backend</strong> returns JSON with match details to frontend</div></div>
+        <div class="step-item"><div class="step-num">9</div><div class="step-text"><strong>Frontend (index.js)</strong> updates the DOM to show the match result</div></div>
+        <div class="step-item" style="border-color:rgba(34,197,94,0.3)"><div class="step-num">10</div><div class="step-text"><strong>User</strong> sees confirmation and beneficiary details</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SLIDE 12 – SUMMARY ═══ -->
+  <div class="slide" id="s12">
+    <div class="slide-header">
+      <span class="logo">SFR // Final Summary</span>
+      <span class="slide-num">12 / 12</span>
+    </div>
+    <div class="content">
+      <div>
+        <div class="slide-subtitle">12 — Summary</div>
+        <div class="slide-title">A <span>Modular</span>, Production-Grade Architecture</div>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="sc-num" style="color:#a78bfa">01</div>
+          <div class="sc-title">UI/UX First</div>
+          <div class="sc-desc">Design decisions happen before coding. Wireframes, mockups, and user flows define the entire experience upfront — reducing rework and aligning the team.</div>
+          <div class="stack-pills"><span class="sp">Figma</span><span class="sp">User Flows</span><span class="sp">Design System</span></div>
+        </div>
+        <div class="summary-card">
+          <div class="sc-num" style="color:var(--green)">02</div>
+          <div class="sc-title">Clean Separation</div>
+          <div class="sc-desc">Each layer — Frontend, Backend, AI, Data Analysis — is independent. Changing one layer does not break another. This is the core principle of scalable software.</div>
+          <div class="stack-pills"><span class="sp">HTML/CSS/JS</span><span class="sp">Flask</span><span class="sp">Python</span></div>
+        </div>
+        <div class="summary-card">
+          <div class="sc-num" style="color:var(--blue)">03</div>
+          <div class="sc-title">API-Driven</div>
+          <div class="sc-desc">Frontend and Backend communicate exclusively through well-defined REST APIs. The API contract (api.md) is the single source of truth for integration.</div>
+          <div class="stack-pills"><span class="sp">REST API</span><span class="sp">JSON</span><span class="sp">HTTP</span></div>
+        </div>
+        <div class="summary-card">
+          <div class="sc-num" style="color:var(--amber)">04</div>
+          <div class="sc-title">AI-Powered</div>
+          <div class="sc-desc">The AI layer adds real intelligence: smart donor-beneficiary matching and a conversational chatbot. Called by the backend — clean, testable, and swappable.</div>
+          <div class="stack-pills"><span class="sp">matching.py</span><span class="sp">chatbot.py</span><span class="sp">NLP</span></div>
+        </div>
+        <div class="summary-card">
+          <div class="sc-num" style="color:var(--teal)">05</div>
+          <div class="sc-title">Data-Informed</div>
+          <div class="sc-desc">The Data Analysis layer closes the feedback loop. Insights from real usage data directly improve AI algorithms and backend logic over time.</div>
+          <div class="stack-pills"><span class="sp">Jupyter</span><span class="sp">Pandas</span><span class="sp">Reports</span></div>
+        </div>
+        <div class="summary-card" style="border-color:rgba(34,197,94,0.3); background:var(--green-subtle)">
+          <div class="sc-num" style="color:var(--green)">06</div>
+          <div class="sc-title">Real-World Ready</div>
+          <div class="sc-desc">This is not a student demo — it is designed like a production system. Modular folders, environment configs, API docs, and AI integration reflect industry standards.</div>
+          <div class="stack-pills"><span class="sp">.env</span><span class="sp">requirements.txt</span><span class="sp">docs/</span></div>
+        </div>
+      </div>
+      <div class="card" style="background:var(--green-subtle); border-color:rgba(34,197,94,0.25); padding:16px 24px">
+        <div style="display:flex; align-items:center; justify-content:space-between">
+          <div>
+            <div class="card-title" style="color:var(--green); margin-bottom:4px">Smart Food Redistribution</div>
+            <p style="font-size:13px; color:var(--text-muted)">6 layers. 1 mission. Zero food wasted.</p>
+          </div>
+          <div style="display:flex; gap:12px">
+            <span class="pill" style="border-color:rgba(34,197,94,0.3); color:var(--green)">Modular</span>
+            <span class="pill" style="border-color:rgba(34,197,94,0.3); color:var(--green)">Scalable</span>
+            <span class="pill" style="border-color:rgba(34,197,94,0.3); color:var(--green)">Production-Grade</span>
+            <span class="pill" style="border-color:rgba(34,197,94,0.3); color:var(--green)">AI-Powered</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /viewport -->
+</div><!-- /stage -->
+
+<!-- NAV -->
+<div id="nav">
+  <button onclick="changeSlide(-1)">Prev</button>
+  <div class="dots" id="dots"></div>
+  <span class="counter" id="counter">1 / 12</span>
+  <button onclick="changeSlide(1)">Next</button>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let cur = 0;
+
+function buildDots() {
+  const d = document.getElementById('dots');
+  for(let i=0;i<total;i++){
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i===0?' active':'');
+    dot.onclick = () => goTo(i);
+    d.appendChild(dot);
+  }
+}
+
+function goTo(n) {
+  slides[cur].classList.remove('active');
+  document.querySelectorAll('.dot')[cur].classList.remove('active');
+  cur = (n + total) % total;
+  slides[cur].classList.add('active');
+  document.querySelectorAll('.dot')[cur].classList.add('active');
+  document.getElementById('counter').textContent = (cur+1) + ' / ' + total;
+}
+
+function changeSlide(dir) { goTo(cur + dir); }
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
+  if(e.key === 'ArrowLeft' || e.key === 'ArrowUp') changeSlide(-1);
+});
+
+// Scale viewport to fit window
+function scaleViewport() {
+  const vp = document.getElementById('vp');
+  const sw = window.innerWidth, sh = window.innerHeight - 80;
+  const scaleW = sw / 1280, scaleH = sh / 720;
+  const scale = Math.min(scaleW, scaleH, 1);
+  vp.style.transform = `scale(${scale})`;
+  vp.style.transformOrigin = 'center center';
+  vp.style.width = '1280px';
+  vp.style.height = '720px';
+}
+
+buildDots();
+scaleViewport();
+window.addEventListener('resize', scaleViewport);
+</script>
+</body>
+</html>
