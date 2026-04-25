@@ -1,0 +1,16 @@
+## Environment Setup
+
+To run this project, the following environment is required:
+
+* Python 3.x
+* Django Framework
+* PostgreSQL Database
+* Required libraries listed in requirements.txt
+* Environment variables configured in .env file
+
+Steps:
+
+1. Install dependencies using:
+   pip install -r requirements.txt
+2. Configure the .env file
+3. Run the backend server
