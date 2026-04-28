@@ -1,16 +1,40 @@
 ## Environment Setup
 
-To run this project, the following environment is required:
+To run this project, follow these steps:
 
-* Python 3.x
-* Django Framework
-* PostgreSQL Database
-* Required libraries listed in requirements.txt
-* Environment variables configured in .env file
+### 1. Create a Python Virtual Environment
+```bash
+python -m venv .venv
+```
 
-Steps:
+### 2. Activate the Virtual Environment
+- On Windows:
+```bash
+.venv\Scripts\activate
+```
+- On macOS/Linux:
+```bash
+source .venv/bin/activate
+```
 
-1. Install dependencies using:
-   pip install -r requirements.txt
-2. Configure the .env file
-3. Run the backend server
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Navigate to the Backend Directory
+```bash
+cd backend
+```
+
+### 5. Run Database Migrations
+```bash
+python manage.py migrate
+```
+
+### 6. Start the Django Development Server
+```bash
+python manage.py runserver
+```
+
+The application will be available at `http://127.0.0.1:8000/`.
