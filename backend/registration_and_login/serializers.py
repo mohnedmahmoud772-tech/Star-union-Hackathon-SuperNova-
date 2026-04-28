@@ -33,7 +33,15 @@ class SignupSerializer(serializers.Serializer):
     provider = ProviderSerializer(required=False)
     receiver = ReceiverSerializer(required=False)
     volunteer = VolunteerSerializer(required=False)
-
+    
+    def validate(self, data):
+        user_type = data.get('user_type')
+        
+        if data.get(user_type) is None:
+            raise serializers.ValidationError(f"{user_type} data is missing")
+        
+        return data
+        
     def create(self, validated_data):
         user_type = validated_data.pop('user_type')
         user_data = {k: v for k, v in validated_data.items() if k in ['username', 'email', 'password']}
